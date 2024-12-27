@@ -2,7 +2,8 @@ import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import { makeStyles, Button, Input } from "@fluentui/react-components";
 import { bundleIcon, ZoomInRegular, ZoomOutRegular, PrintRegular, DownloadRegular, PreviewLinkRegular } from "@fluentui/react-icons";
-import { pdfjs, Document, Page } from "react-pdf";
+import { pdfjs } from "pdfjs-dist";
+import "pdfjs-dist/web/pdf_viewer.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
@@ -49,8 +50,28 @@ const PdfViewer = ({ file }) => {
   const [showThumbnails, setShowThumbnails] = useState(false);
   const canvasRef = useRef(null);
 
-  const onDocumentLoadSuccess = ({ numPages }) => {
-    setNumPages(numPages);
+  useEffect(() => {
+    const loadingTask = pdfjs.getDocument(file);
+    loadingTask.promise.then((pdf) => {
+      setNumPages(pdf.numPages);
+      renderPage(pdf, pageNumber, scale);
+    });
+  }, [file, pageNumber, scale]);
+
+  const renderPage = (pdf, pageNumber, scale) => {
+    pdf.getPage(pageNumber).then((page) => {
+      const viewport = page.getViewport({ scale });
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      const renderContext = {
+        canvasContext: context,
+        viewport,
+      };
+      page.render(renderContext);
+    });
   };
 
   const changePage = (offset) => {
@@ -95,9 +116,7 @@ const PdfViewer = ({ file }) => {
         <Button icon={<DownloadIcon />} onClick={downloadDocument}>Download</Button>
         <Button icon={<PreviewIcon />} onClick={() => setShowThumbnails(!showThumbnails)}>Toggle Thumbnails</Button>
       </div>
-      <Document file={file} onLoadSuccess={onDocumentLoadSuccess}>
-        <Page pageNumber={pageNumber} scale={scale} canvasRef={canvasRef} />
-      </Document>
+      <canvas ref={canvasRef} className={styles.canvas}></canvas>
       <div className={styles.controls}>
         <Button onClick={() => changePage(-1)} disabled={pageNumber <= 1}>Previous</Button>
         <Input type="number" value={pageNumber} onChange={(e) => setPageNumber(Number(e.target.value))} />
@@ -107,9 +126,7 @@ const PdfViewer = ({ file }) => {
         <div className={styles.thumbnailWrapper}>
           {Array.from(new Array(numPages), (el, index) => (
             <div key={`thumbnail_${index}`} onClick={() => setPageNumber(index + 1)}>
-              <Document file={file}>
-                <Page pageNumber={index + 1} scale={0.2} className={styles.thumbnail} />
-              </Document>
+              <canvas className={styles.thumbnail}></canvas>
             </div>
           ))}
         </div>

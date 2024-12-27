@@ -17,7 +17,7 @@ export default function Home() {
             height={38}
             priority
           />
-          <PdfViewer file="/path/to/your/pdf/document.pdf" />
+          <PdfViewer file="/dummy.pdf" />
           <ol>
             <li>
               Get started by editing <code>src/app/page.tsx</code>.
