@@ -57,9 +57,18 @@ const PdfViewer = () => {
   const [drawing, setDrawing] = useState(false);
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
-  const [currentRect, setCurrentRect] = useState(null);
-  const [renderTask, setRenderTask] = useState<pdfjsLib.PDFRenderTask | null>(null);
+  interface Rectangle {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: string;
+  }
+  
+  const [currentRect, setCurrentRect] = useState<Rectangle | null>(null);
+  const [renderTask, setRenderTask] = useState<pdfjsLib.RenderTask | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const thumbnailsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadingTask = pdfjsLib.getDocument("/document.pdf");
@@ -110,7 +119,7 @@ const PdfViewer = () => {
     }
   };
 
-  const handleMouseMove = (event) => {
+  const handleMouseMove = (event: { nativeEvent: { offsetX: number; offsetY: number; }; }) => {
     if (drawing) {
       const newRect = {
         ...currentRect,
@@ -201,7 +210,19 @@ const PdfViewer = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.top = '0';
+    iframe.style.left = '0';
+    iframe.style.zIndex = '-1';
+    iframe.src = '/document.pdf';
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      iframe.contentWindow?.print();
+      document.body.removeChild(iframe);
+    };
   };
 
   const handleDownload = () => {
@@ -274,7 +295,7 @@ const PdfViewer = () => {
         )}
       </div>
       {showThumbnails && (
-        <div className={styles.thumbnailWrapper}>
+        <div className={styles.thumbnailWrapper} ref={thumbnailsRef}>
           {Array.from(new Array(numPages), (el, index) => (
             <canvas
               key={index}
