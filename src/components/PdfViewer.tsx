@@ -28,6 +28,7 @@ const useStyles = makeStyles({
   },
   canvas: {
     border: "1px solid black",
+    position: "relative",
   },
   thumbnailWrapper: {
     display: "flex",
@@ -39,6 +40,10 @@ const useStyles = makeStyles({
     height: "auto",
     cursor: "pointer",
   },
+  rectangle: {
+    position: "absolute",
+    border: "2px solid",
+  },
 });
 
 const PdfViewer = () => {
@@ -48,7 +53,13 @@ const PdfViewer = () => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [scale, setScale] = useState(1.0);
   const [showThumbnails, setShowThumbnails] = useState(false);
-  const canvasRef = useRef(null);
+  const [rectangles, setRectangles] = useState([]);
+  const [drawing, setDrawing] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [startY, setStartY] = useState(0);
+  const [currentRect, setCurrentRect] = useState(null);
+  const [renderTask, setRenderTask] = useState<pdfjsLib.PDFRenderTask | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const loadingTask = pdfjsLib.getDocument("/document.pdf");
@@ -56,6 +67,9 @@ const PdfViewer = () => {
       setPdf(loadedPdf);
       setNumPages(loadedPdf.numPages);
     });
+
+    const storedRectangles = JSON.parse(localStorage.getItem("rectangles") || "[]");
+    setRectangles(storedRectangles);
   }, []);
 
   useEffect(() => {
@@ -80,6 +94,63 @@ const PdfViewer = () => {
     };
   }, [numPages]);
 
+  const handleMouseDown = (event) => {
+    if (event.ctrlKey && event.button === 0) {
+      setDrawing(true);
+      setStartX(event.nativeEvent.offsetX);
+      setStartY(event.nativeEvent.offsetY);
+      const newRect = {
+        x: event.nativeEvent.offsetX,
+        y: event.nativeEvent.offsetY,
+        width: 0,
+        height: 0,
+        color: "red",
+      };
+      setCurrentRect(newRect);
+    }
+  };
+
+  const handleMouseMove = (event) => {
+    if (drawing) {
+      const newRect = {
+        ...currentRect,
+        width: event.nativeEvent.offsetX - startX,
+        height: event.nativeEvent.offsetY - startY,
+      };
+      setCurrentRect(newRect);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (drawing) {
+      const finalRect = {
+        ...currentRect,
+        color: "green",
+      };
+      const newRectangles = [...rectangles, finalRect];
+      setRectangles(newRectangles);
+      localStorage.setItem("rectangles", JSON.stringify(newRectangles));
+      setDrawing(false);
+      setCurrentRect(null);
+    }
+  };
+
+  const handleKeyUp = (event) => {
+    if (event.key === "Control" && drawing) {
+      handleMouseUp();
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [drawing, currentRect]);
+
   interface RenderContext {
     canvasContext: CanvasRenderingContext2D;
     viewport: pdfjsLib.PageViewport;
@@ -87,6 +158,9 @@ const PdfViewer = () => {
 
   const renderPage = (pageNum: number) => {
     if (!pdf) return;
+    if (renderTask) {
+      renderTask.cancel();
+    }
     pdf.getPage(pageNum).then((page: pdfjsLib.PDFPageProxy) => {
       const viewport = page.getViewport({ scale });
       const canvas = canvasRef.current as HTMLCanvasElement | null;
@@ -99,7 +173,15 @@ const PdfViewer = () => {
         canvasContext: context,
         viewport,
       };
-      page.render(renderContext);
+      const task = page.render(renderContext);
+      setRenderTask(task);
+      task.promise.then(() => {
+        setRenderTask(null);
+      }).catch((error) => {
+        if (error.name !== 'RenderingCancelledException') {
+          console.error(error);
+        }
+      });
     });
   };
 
@@ -159,7 +241,38 @@ const PdfViewer = () => {
           Toggle Thumbnails
         </Button>
       </div>
-      <canvas ref={canvasRef} className={styles.canvas} />
+      <div
+        className={styles.canvas}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+      >
+        <canvas ref={canvasRef} />
+        {rectangles.map((rect, index) => (
+          <div
+            key={index}
+            className={styles.rectangle}
+            style={{
+              left: rect.x,
+              top: rect.y,
+              width: rect.width,
+              height: rect.height,
+              borderColor: rect.color,
+            }}
+          />
+        ))}
+        {currentRect && (
+          <div
+            className={styles.rectangle}
+            style={{
+              left: currentRect.x,
+              top: currentRect.y,
+              width: currentRect.width,
+              height: currentRect.height,
+              borderColor: currentRect.color,
+            }}
+          />
+        )}
+      </div>
       {showThumbnails && (
         <div className={styles.thumbnailWrapper}>
           {Array.from(new Array(numPages), (el, index) => (
