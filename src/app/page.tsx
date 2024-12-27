@@ -2,7 +2,7 @@
 import Image from "next/image";
 import styles from "./page.module.css";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import PdfViewer from "@/components/PdfViewer";
+import PdfViewer from "src/components/PdfViewer.tsx";
 
 export default function Home() {
   return (
