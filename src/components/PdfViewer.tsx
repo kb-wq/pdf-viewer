@@ -1,23 +1,29 @@
 import * as React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { makeStyles, Button, Input } from "@fluentui/react-components";
-import { bundleIcon, ZoomInRegular, ZoomOutRegular, PrintRegular, DownloadRegular, PreviewLinkRegular } from "@fluentui/react-icons";
-import { pdfjs } from "pdfjs-dist";
-import "pdfjs-dist/web/pdf_viewer.css";
+import {
+  bundleIcon,
+  ZoomInRegular,
+  ZoomOutRegular,
+  PrintRegular,
+  DownloadRegular,
+  PreviewLinkRegular,
+} from "@fluentui/react-icons";
+import pdfjsLib from "pdfjs-dist/build/pdf";
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker.entry";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const useStyles = makeStyles({
   wrapper: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
+    gap: "10px",
   },
   controls: {
     display: "flex",
-    justifyContent: "space-between",
-    width: "100%",
-    marginBottom: "10px",
+    gap: "10px",
   },
   canvas: {
     border: "1px solid black",
@@ -25,41 +31,40 @@ const useStyles = makeStyles({
   thumbnailWrapper: {
     display: "flex",
     flexWrap: "wrap",
-    justifyContent: "center",
-    marginTop: "10px",
+    gap: "5px",
   },
   thumbnail: {
     width: "100px",
     height: "auto",
-    margin: "5px",
     cursor: "pointer",
   },
 });
 
-const ZoomInIcon = bundleIcon(ZoomInRegular, ZoomInRegular);
-const ZoomOutIcon = bundleIcon(ZoomOutRegular, ZoomOutRegular);
-const PrintIcon = bundleIcon(PrintRegular, PrintRegular);
-const DownloadIcon = bundleIcon(DownloadRegular, DownloadRegular);
-const PreviewIcon = bundleIcon(PreviewLinkRegular, PreviewLinkRegular);
-
-const PdfViewer = ({ file }) => {
+const PdfViewer = () => {
   const styles = useStyles();
-  const [numPages, setNumPages] = useState(null);
+  const [pdf, setPdf] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
+  const [numPages, setNumPages] = useState(null);
   const [scale, setScale] = useState(1.0);
   const [showThumbnails, setShowThumbnails] = useState(false);
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    const loadingTask = pdfjs.getDocument(file);
-    loadingTask.promise.then((pdf) => {
-      setNumPages(pdf.numPages);
-      renderPage(pdf, pageNumber, scale);
+    const loadingTask = pdfjsLib.getDocument("/dummy.pdf");
+    loadingTask.promise.then((loadedPdf) => {
+      setPdf(loadedPdf);
+      setNumPages(loadedPdf.numPages);
     });
-  }, [file, pageNumber, scale]);
+  }, []);
 
-  const renderPage = (pdf, pageNumber, scale) => {
-    pdf.getPage(pageNumber).then((page) => {
+  useEffect(() => {
+    if (pdf) {
+      renderPage(pageNumber);
+    }
+  }, [pdf, pageNumber, scale]);
+
+  const renderPage = (pageNum) => {
+    pdf.getPage(pageNum).then((page) => {
       const viewport = page.getViewport({ scale });
       const canvas = canvasRef.current;
       const context = canvas.getContext("2d");
@@ -74,60 +79,71 @@ const PdfViewer = ({ file }) => {
     });
   };
 
-  const changePage = (offset) => {
-    setPageNumber((prevPageNumber) => Math.min(Math.max(prevPageNumber + offset, 1), numPages));
+  const handleZoomIn = () => {
+    setScale((prevScale) => prevScale + 0.1);
   };
 
-  const changeScale = (offset) => {
-    setScale((prevScale) => Math.min(Math.max(prevScale + offset, 0.5), 2.0));
+  const handleZoomOut = () => {
+    setScale((prevScale) => Math.max(prevScale - 0.1, 0.1));
   };
 
-  const printDocument = () => {
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    iframe.style.top = "0";
-    iframe.style.left = "0";
-    iframe.style.zIndex = "-1";
-    iframe.src = file;
-    document.body.appendChild(iframe);
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
-    document.body.removeChild(iframe);
+  const handlePageChange = (event) => {
+    const newPageNumber = parseInt(event.target.value, 10);
+    if (newPageNumber > 0 && newPageNumber <= numPages) {
+      setPageNumber(newPageNumber);
+    }
   };
 
-  const downloadDocument = () => {
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownload = () => {
     const link = document.createElement("a");
-    link.href = file;
-    link.download = "document.pdf";
-    document.body.appendChild(link);
+    link.href = "/dummy.pdf";
+    link.download = "dummy.pdf";
     link.click();
-    document.body.removeChild(link);
+  };
+
+  const toggleThumbnails = () => {
+    setShowThumbnails((prevShowThumbnails) => !prevShowThumbnails);
   };
 
   return (
     <div className={styles.wrapper}>
       <div className={styles.controls}>
-        <Button icon={<ZoomOutIcon />} onClick={() => changeScale(-0.1)}>Zoom Out</Button>
-        <Input type="number" value={Math.round(scale * 100)} onChange={(e) => setScale(Number(e.target.value) / 100)} />
-        <Button icon={<ZoomInIcon />} onClick={() => changeScale(0.1)}>Zoom In</Button>
-        <Button icon={<PrintIcon />} onClick={printDocument}>Print</Button>
-        <Button icon={<DownloadIcon />} onClick={downloadDocument}>Download</Button>
-        <Button icon={<PreviewIcon />} onClick={() => setShowThumbnails(!showThumbnails)}>Toggle Thumbnails</Button>
+        <Button icon={<ZoomInRegular />} onClick={handleZoomIn}>
+          Zoom In
+        </Button>
+        <Button icon={<ZoomOutRegular />} onClick={handleZoomOut}>
+          Zoom Out
+        </Button>
+        <Input
+          type="number"
+          value={pageNumber}
+          onChange={handlePageChange}
+          min={1}
+          max={numPages}
+        />
+        <Button icon={<PrintRegular />} onClick={handlePrint}>
+          Print
+        </Button>
+        <Button icon={<DownloadRegular />} onClick={handleDownload}>
+          Download
+        </Button>
+        <Button icon={<PreviewLinkRegular />} onClick={toggleThumbnails}>
+          Toggle Thumbnails
+        </Button>
       </div>
-      <canvas ref={canvasRef} className={styles.canvas}></canvas>
-      <div className={styles.controls}>
-        <Button onClick={() => changePage(-1)} disabled={pageNumber <= 1}>Previous</Button>
-        <Input type="number" value={pageNumber} onChange={(e) => setPageNumber(Number(e.target.value))} />
-        <Button onClick={() => changePage(1)} disabled={pageNumber >= numPages}>Next</Button>
-      </div>
+      <canvas ref={canvasRef} className={styles.canvas} />
       {showThumbnails && (
         <div className={styles.thumbnailWrapper}>
           {Array.from(new Array(numPages), (el, index) => (
-            <div key={`thumbnail_${index}`} onClick={() => setPageNumber(index + 1)}>
-              <canvas className={styles.thumbnail}></canvas>
-            </div>
+            <canvas
+              key={index}
+              className={styles.thumbnail}
+              onClick={() => setPageNumber(index + 1)}
+            />
           ))}
         </div>
       )}

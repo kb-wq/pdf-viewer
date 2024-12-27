@@ -2,7 +2,7 @@
 import Image from "next/image";
 import styles from "./page.module.css";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import PdfViewer from "../components/PdfViewer";
+import PdfViewer from "@/components/PdfViewer";
 
 export default function Home() {
   return (
@@ -17,7 +17,6 @@ export default function Home() {
             height={38}
             priority
           />
-          <PdfViewer file="/dummy.pdf" />
           <ol>
             <li>
               Get started by editing <code>src/app/page.tsx</code>.
@@ -50,6 +49,7 @@ export default function Home() {
               Read our docs
             </a>
           </div>
+          <PdfViewer />
         </main>
         <footer className={styles.footer}>
           <a
