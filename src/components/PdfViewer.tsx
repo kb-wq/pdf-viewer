@@ -31,7 +31,7 @@ const useStyles = makeStyles({
   },
   thumbnailWrapper: {
     display: "flex",
-    flexWrap: "wrap",
+    flexDirection: "column",
     gap: "5px",
   },
   thumbnail: {
@@ -48,7 +48,8 @@ const PdfViewer = () => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [scale, setScale] = useState(1.0);
   const [showThumbnails, setShowThumbnails] = useState(false);
-  const canvasRef = useRef(null);
+  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+  const thumbnailRefs = useRef<(HTMLCanvasElement | null)[]>([]);
 
   useEffect(() => {
     const loadingTask = pdfjsLib.getDocument("/document.pdf");
@@ -60,7 +61,7 @@ const PdfViewer = () => {
 
   useEffect(() => {
     if (pdf) {
-      renderPage(pageNumber);
+      renderAllPages();
     }
   }, [pdf, pageNumber, scale]);
 
@@ -69,12 +70,10 @@ const PdfViewer = () => {
     viewport: pdfjsLib.PageViewport;
   }
 
-  const renderPage = (pageNum: number) => {
-    if (!pdf) return;
+  const renderPage = (pageNum: number, canvas: HTMLCanvasElement | null) => {
+    if (!pdf || !canvas) return;
     pdf.getPage(pageNum).then((page: pdfjsLib.PDFPageProxy) => {
       const viewport = page.getViewport({ scale });
-      const canvas = canvasRef.current as HTMLCanvasElement | null;
-      if (!canvas) return;
       const context = canvas.getContext("2d") as CanvasRenderingContext2D;
       canvas.height = viewport.height;
       canvas.width = viewport.width;
@@ -85,6 +84,20 @@ const PdfViewer = () => {
       };
       page.render(renderContext);
     });
+  };
+
+  const renderAllPages = () => {
+    if (!pdf) return;
+    for (let i = 1; i <= numPages; i++) {
+      renderPage(i, canvasRefs.current[i - 1]);
+    }
+  };
+
+  const renderThumbnails = () => {
+    if (!pdf) return;
+    for (let i = 1; i <= numPages; i++) {
+      renderPage(i, thumbnailRefs.current[i - 1]);
+    }
   };
 
   const handleZoomIn = () => {
@@ -115,6 +128,17 @@ const PdfViewer = () => {
 
   const toggleThumbnails = () => {
     setShowThumbnails((prevShowThumbnails) => !prevShowThumbnails);
+    if (!showThumbnails) {
+      renderThumbnails();
+    }
+  };
+
+  const handleScroll = (event) => {
+    if (event.deltaY > 0) {
+      setPageNumber((prevPageNumber) => Math.min(prevPageNumber + 1, numPages));
+    } else {
+      setPageNumber((prevPageNumber) => Math.max(prevPageNumber - 1, 1));
+    }
   };
 
   return (
@@ -143,12 +167,21 @@ const PdfViewer = () => {
           Toggle Thumbnails
         </Button>
       </div>
-      <canvas ref={canvasRef} className={styles.canvas} />
+      <div className={styles.canvas} onWheel={handleScroll}>
+        {Array.from(new Array(numPages), (el, index) => (
+          <canvas
+            key={index}
+            ref={(el) => (canvasRefs.current[index] = el)}
+            className={styles.canvas}
+          />
+        ))}
+      </div>
       {showThumbnails && (
         <div className={styles.thumbnailWrapper}>
           {Array.from(new Array(numPages), (el, index) => (
             <canvas
               key={index}
+              ref={(el) => (thumbnailRefs.current[index] = el)}
               className={styles.thumbnail}
               onClick={() => setPageNumber(index + 1)}
             />
