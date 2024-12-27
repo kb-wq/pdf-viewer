@@ -9,7 +9,7 @@ import {
   DownloadRegular,
   PreviewLinkRegular,
 } from "@fluentui/react-icons";
-import pdfjsLib from "pdfjs-dist/build/pdf";
+import pdfjsLib from "pdfjs-dist/webpack";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.entry";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
