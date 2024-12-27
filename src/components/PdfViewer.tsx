@@ -9,9 +9,9 @@ import {
   DownloadRegular,
   PreviewLinkRegular,
 } from "@fluentui/react-icons";
-import pdfjsLib from "pdfjs-dist";
+import * as pdfjsLib from "pdfjs-dist/build/pdf.worker.mjs";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.entry');
+pdfjsLib.GlobalWorkerOptions.workerSrc = `pdfjs-dist/build/pdf.worker.mjs`;
 
 const useStyles = makeStyles({
   wrapper: {
