@@ -50,6 +50,13 @@ const PdfViewer = () => {
   const [showThumbnails, setShowThumbnails] = useState(false);
   const canvasRef = useRef(null);
 
+  const [rectangles, setRectangles] = useState(() => {
+    const savedRectangles = localStorage.getItem("rectangles");
+    return savedRectangles ? JSON.parse(savedRectangles) : [];
+  });
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentRect, setCurrentRect] = useState(null);
+
   useEffect(() => {
     const loadingTask = pdfjsLib.getDocument("/document.pdf");
     loadingTask.promise.then((loadedPdf: PDFDocumentProxy) => {
@@ -63,6 +70,36 @@ const PdfViewer = () => {
       renderPage(pageNumber);
     }
   }, [pdf, pageNumber, scale]);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Control") {
+        setIsDrawing(true);
+      }
+    };
+
+    const handleKeyUp = (event) => {
+      if (event.key === "Control") {
+        setIsDrawing(false);
+        if (currentRect) {
+          setRectangles((prevRectangles) => {
+            const newRectangles = [...prevRectangles, currentRect];
+            localStorage.setItem("rectangles", JSON.stringify(newRectangles));
+            return newRectangles;
+          });
+          setCurrentRect(null);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [currentRect]);
 
   interface RenderContext {
     canvasContext: CanvasRenderingContext2D;
@@ -83,7 +120,13 @@ const PdfViewer = () => {
         canvasContext: context,
         viewport,
       };
-      page.render(renderContext);
+      page.render(renderContext).promise.then(() => {
+        rectangles.forEach((rect) => {
+          context.strokeStyle = "green";
+          context.lineWidth = 2;
+          context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+        });
+      });
     });
   };
 
@@ -141,6 +184,43 @@ const PdfViewer = () => {
     }
   };
 
+  const handleMouseDown = (event) => {
+    if (isDrawing && event.button === 0) {
+      const rect = {
+        x: event.nativeEvent.offsetX,
+        y: event.nativeEvent.offsetY,
+        width: 0,
+        height: 0,
+      };
+      setCurrentRect(rect);
+    }
+  };
+
+  const handleMouseMove = (event) => {
+    if (isDrawing && currentRect) {
+      const newRect = {
+        ...currentRect,
+        width: event.nativeEvent.offsetX - currentRect.x,
+        height: event.nativeEvent.offsetY - currentRect.y,
+      };
+      setCurrentRect(newRect);
+    }
+  };
+
+  const handleMouseUp = (event) => {
+    if (isDrawing && event.button === 0) {
+      setIsDrawing(false);
+      if (currentRect) {
+        setRectangles((prevRectangles) => {
+          const newRectangles = [...prevRectangles, currentRect];
+          localStorage.setItem("rectangles", JSON.stringify(newRectangles));
+          return newRectangles;
+        });
+        setCurrentRect(null);
+      }
+    }
+  };
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.controls}>
@@ -167,7 +247,14 @@ const PdfViewer = () => {
           Toggle Thumbnails
         </Button>
       </div>
-      <canvas ref={canvasRef} className={styles.canvas} onWheel={handleScroll} />
+      <canvas
+        ref={canvasRef}
+        className={styles.canvas}
+        onWheel={handleScroll}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      />
       {showThumbnails && (
         <div className={styles.thumbnailWrapper}>
           {Array.from(new Array(numPages), (el, index) => (
