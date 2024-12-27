@@ -106,7 +106,7 @@ const PdfViewer = () => {
     const canvas = canvasRef.current as HTMLCanvasElement | null;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL();
-    const windowContent = '<!DOCTYPE html>';
+    let windowContent = '<!DOCTYPE html>';
     windowContent += '<html>';
     windowContent += '<head><title>Print PDF</title></head>';
     windowContent += '<body>';
