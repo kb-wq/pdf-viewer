@@ -2,16 +2,18 @@ import * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { makeStyles, Button, Input } from "@fluentui/react-components";
 import {
-  bundleIcon,
   ZoomInRegular,
   ZoomOutRegular,
   PrintRegular,
-  DownloadRegular,
+  ArrowDownloadRegular,
   PreviewLinkRegular,
 } from "@fluentui/react-icons";
-import pdfjsLib from "pdfjs-dist";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.entry');
+import * as pdfjsLib from 'pdfjs-dist';
+import { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 
 const useStyles = makeStyles({
   wrapper: {
@@ -41,16 +43,16 @@ const useStyles = makeStyles({
 
 const PdfViewer = () => {
   const styles = useStyles();
-  const [pdf, setPdf] = useState(null);
+  const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
-  const [numPages, setNumPages] = useState(null);
+  const [numPages, setNumPages] = useState<number | null>(null);
   const [scale, setScale] = useState(1.0);
   const [showThumbnails, setShowThumbnails] = useState(false);
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    const loadingTask = pdfjsLib.getDocument("/dummy.pdf");
-    loadingTask.promise.then((loadedPdf) => {
+    const loadingTask = pdfjsLib.getDocument("/document.pdf");
+    loadingTask.promise.then((loadedPdf: PDFDocumentProxy) => {
       setPdf(loadedPdf);
       setNumPages(loadedPdf.numPages);
     });
@@ -62,15 +64,22 @@ const PdfViewer = () => {
     }
   }, [pdf, pageNumber, scale]);
 
-  const renderPage = (pageNum) => {
-    pdf.getPage(pageNum).then((page) => {
+  interface RenderContext {
+    canvasContext: CanvasRenderingContext2D;
+    viewport: pdfjsLib.PageViewport;
+  }
+
+  const renderPage = (pageNum: number) => {
+    if (!pdf) return;
+    pdf.getPage(pageNum).then((page: pdfjsLib.PDFPageProxy) => {
       const viewport = page.getViewport({ scale });
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
+      const canvas = canvasRef.current as HTMLCanvasElement | null;
+      if (!canvas) return;
+      const context = canvas.getContext("2d") as CanvasRenderingContext2D;
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      const renderContext = {
+      const renderContext: RenderContext = {
         canvasContext: context,
         viewport,
       };
@@ -99,8 +108,8 @@ const PdfViewer = () => {
 
   const handleDownload = () => {
     const link = document.createElement("a");
-    link.href = "/dummy.pdf";
-    link.download = "dummy.pdf";
+    link.href = "/document.pdf";
+    link.download = "document.pdf";
     link.click();
   };
 
@@ -127,7 +136,7 @@ const PdfViewer = () => {
         <Button icon={<PrintRegular />} onClick={handlePrint}>
           Print
         </Button>
-        <Button icon={<DownloadRegular />} onClick={handleDownload}>
+        <Button icon={<ArrowDownloadRegular />} onClick={handleDownload}>
           Download
         </Button>
         <Button icon={<PreviewLinkRegular />} onClick={toggleThumbnails}>
