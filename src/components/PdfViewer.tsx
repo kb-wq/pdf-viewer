@@ -8,9 +8,12 @@ import {
   ArrowDownloadRegular,
   PreviewLinkRegular,
 } from "@fluentui/react-icons";
-import * as pdfjsLib from "pdfjs-dist";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
+import * as pdfjsLib from 'pdfjs-dist';
+import { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url,
+).toString();
 
 const useStyles = makeStyles({
   wrapper: {
@@ -40,7 +43,7 @@ const useStyles = makeStyles({
 
 const PdfViewer = () => {
   const styles = useStyles();
-  const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [scale, setScale] = useState(1.0);
@@ -49,7 +52,7 @@ const PdfViewer = () => {
 
   useEffect(() => {
     const loadingTask = pdfjsLib.getDocument("/document.pdf");
-    loadingTask.promise.then((loadedPdf: pdfjsLib.PDFDocumentProxy) => {
+    loadingTask.promise.then((loadedPdf: PDFDocumentProxy) => {
       setPdf(loadedPdf);
       setNumPages(loadedPdf.numPages);
     });
@@ -60,6 +63,22 @@ const PdfViewer = () => {
       renderPage(pageNumber);
     }
   }, [pdf, pageNumber, scale]);
+
+  useEffect(() => {
+    const handleScroll = (event) => {
+      if (event.deltaY > 0) {
+        setPageNumber((prevPageNumber) => Math.min(prevPageNumber + 1, numPages));
+      } else {
+        setPageNumber((prevPageNumber) => Math.max(prevPageNumber - 1, 1));
+      }
+    };
+
+    window.addEventListener("wheel", handleScroll);
+
+    return () => {
+      window.removeEventListener("wheel", handleScroll);
+    };
+  }, [numPages]);
 
   interface RenderContext {
     canvasContext: CanvasRenderingContext2D;
