@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fluentui/react-components": "^9.56.8",
+    "@types/pdfjs-dist": "^2.10.377",
     "next": "15.1.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
