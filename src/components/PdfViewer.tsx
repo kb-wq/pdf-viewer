@@ -49,7 +49,7 @@ const PdfViewer = () => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    const loadingTask = pdfjsLib.getDocument("/dummy.pdf");
+    const loadingTask = pdfjsLib.getDocument("/document.pdf");
     loadingTask.promise.then((loadedPdf) => {
       setPdf(loadedPdf);
       setNumPages(loadedPdf.numPages);
