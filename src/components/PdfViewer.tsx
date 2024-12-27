@@ -39,6 +39,10 @@ const useStyles = makeStyles({
     height: "auto",
     cursor: "pointer",
   },
+  rectangle: {
+    position: "absolute",
+    border: "2px solid green",
+  },
 });
 
 const PdfViewer = () => {
@@ -48,6 +52,9 @@ const PdfViewer = () => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [scale, setScale] = useState(1.0);
   const [showThumbnails, setShowThumbnails] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [rectangles, setRectangles] = useState([]);
+  const [currentRect, setCurrentRect] = useState(null);
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -56,13 +63,62 @@ const PdfViewer = () => {
       setPdf(loadedPdf);
       setNumPages(loadedPdf.numPages);
     });
+
+    const savedRectangles = JSON.parse(localStorage.getItem("rectangles") || "[]");
+    setRectangles(savedRectangles);
   }, []);
 
   useEffect(() => {
     if (pdf) {
       renderPage(pageNumber);
     }
-  }, [pdf, pageNumber, scale]);
+  }, [pdf, pageNumber, scale, rectangles]);
+
+  useEffect(() => {
+    const handleMouseDown = (event) => {
+      if (event.ctrlKey) {
+        setIsDrawing(true);
+        const rect = {
+          x: event.clientX,
+          y: event.clientY,
+          width: 0,
+          height: 0,
+        };
+        setCurrentRect(rect);
+      }
+    };
+
+    const handleMouseMove = (event) => {
+      if (isDrawing && currentRect) {
+        const newRect = {
+          ...currentRect,
+          width: event.clientX - currentRect.x,
+          height: event.clientY - currentRect.y,
+        };
+        setCurrentRect(newRect);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDrawing) {
+        setIsDrawing(false);
+        const newRectangles = [...rectangles, currentRect];
+        setRectangles(newRectangles);
+        localStorage.setItem("rectangles", JSON.stringify(newRectangles));
+        setCurrentRect(null);
+      }
+    };
+
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDrawing, currentRect, rectangles]);
 
   interface RenderContext {
     canvasContext: CanvasRenderingContext2D;
@@ -83,7 +139,13 @@ const PdfViewer = () => {
         canvasContext: context,
         viewport,
       };
-      page.render(renderContext);
+      page.render(renderContext).promise.then(() => {
+        rectangles.forEach((rect) => {
+          context.strokeStyle = "green";
+          context.lineWidth = 2;
+          context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+        });
+      });
     });
   };
 
