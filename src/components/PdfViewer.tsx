@@ -103,7 +103,23 @@ const PdfViewer = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    const canvas = canvasRef.current as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL();
+    let windowContent = '<!DOCTYPE html>';
+    windowContent += '<html>';
+    windowContent += '<head><title>Print PDF</title></head>';
+    windowContent += '<body>';
+    windowContent += `<img src="${dataUrl}">`;
+    windowContent += '</body>';
+    windowContent += '</html>';
+    const printWin = window.open('', '', 'width=800,height=600');
+    printWin.document.open();
+    printWin.document.write(windowContent);
+    printWin.document.close();
+    printWin.focus();
+    printWin.print();
+    printWin.close();
   };
 
   const handleDownload = () => {
@@ -115,6 +131,14 @@ const PdfViewer = () => {
 
   const toggleThumbnails = () => {
     setShowThumbnails((prevShowThumbnails) => !prevShowThumbnails);
+  };
+
+  const handleScroll = (event) => {
+    if (event.deltaY > 0) {
+      setPageNumber((prevPageNumber) => Math.min(prevPageNumber + 1, numPages));
+    } else {
+      setPageNumber((prevPageNumber) => Math.max(prevPageNumber - 1, 1));
+    }
   };
 
   return (
@@ -143,7 +167,7 @@ const PdfViewer = () => {
           Toggle Thumbnails
         </Button>
       </div>
-      <canvas ref={canvasRef} className={styles.canvas} />
+      <canvas ref={canvasRef} className={styles.canvas} onWheel={handleScroll} />
       {showThumbnails && (
         <div className={styles.thumbnailWrapper}>
           {Array.from(new Array(numPages), (el, index) => (
