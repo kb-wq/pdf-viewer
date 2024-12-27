@@ -2,6 +2,7 @@
 import Image from "next/image";
 import styles from "./page.module.css";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
+import PdfViewer from "../components/PdfViewer";
 
 export default function Home() {
   return (
@@ -16,6 +17,7 @@ export default function Home() {
             height={38}
             priority
           />
+          <PdfViewer file="/path/to/your/pdf/document.pdf" />
           <ol>
             <li>
               Get started by editing <code>src/app/page.tsx</code>.
